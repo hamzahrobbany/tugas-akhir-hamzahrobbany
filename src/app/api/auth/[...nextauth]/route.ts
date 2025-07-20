@@ -1,23 +1,20 @@
 // src/app/api/auth/[...nextauth]/route.ts
-import NextAuth from 'next-auth';
+import NextAuth, { AuthOptions } from 'next-auth';
 import GoogleProvider from 'next-auth/providers/google';
-import CredentialsProvider from 'next-auth/providers/credentials'; // Import CredentialsProvider
+import CredentialsProvider from 'next-auth/providers/credentials';
 import { PrismaAdapter } from '@auth/prisma-adapter';
 import prisma from '@/lib/db';
-import { Adapter } from 'next-auth/adapters';
+import bcrypt from 'bcryptjs';
 import { Role } from '@prisma/client';
-import bcrypt from 'bcryptjs'; // Import bcryptjs
+import { Adapter } from 'next-auth/adapters';
 
-export const authOptions = {
+export const authOptions: AuthOptions = {
   adapter: PrismaAdapter(prisma) as Adapter,
   providers: [
     GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID as string,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,
+      clientId: process.env.GOOGLE_CLIENT_ID!,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
     }),
-    // ===========================================
-    // Tambahkan CredentialsProvider untuk login email/password
-    // ===========================================
     CredentialsProvider({
       name: 'Credentials',
       credentials: {
@@ -30,29 +27,23 @@ export const authOptions = {
         }
 
         const user = await prisma.user.findUnique({
-          where: {
-            email: credentials.email,
-          },
+          where: { email: credentials.email },
         });
 
         if (!user || !user.password) {
-          throw new Error('Kredensial tidak valid.');
+          throw new Error('Email atau password salah.');
         }
 
-        // Bandingkan password yang dimasukkan dengan hash di database
         const isPasswordValid = await bcrypt.compare(credentials.password, user.password);
-
         if (!isPasswordValid) {
-          throw new Error('Kredensial tidak valid.');
+          throw new Error('Email atau password salah.');
         }
 
-        // Jika valid, kembalikan objek user
-        // Pastikan id adalah string karena NextAuth mengharapkannya
         return {
           id: user.id.toString(),
           name: user.name,
           email: user.email,
-          image: user.image,
+          image: user.image ?? null,
           role: user.role,
           isVerifiedByAdmin: user.isVerifiedByAdmin,
         };
@@ -60,19 +51,18 @@ export const authOptions = {
     }),
   ],
   session: {
-    strategy: 'jwt' as const,
+    strategy: 'jwt',
   },
   callbacks: {
     async jwt({ token, user, trigger, session }) {
       if (user) {
         token.id = user.id;
-        // Ambil role dan isVerifiedByAdmin dari database
         const dbUser = await prisma.user.findUnique({
           where: { id: parseInt(user.id as string) },
           select: { role: true, isVerifiedByAdmin: true },
         });
         token.role = dbUser?.role || Role.CUSTOMER;
-        token.isVerifiedByAdmin = dbUser?.isVerifiedByAdmin || false;
+        token.isVerifiedByAdmin = dbUser?.isVerifiedByAdmin ?? false;
       }
 
       if (trigger === 'update' && session?.role) {
@@ -82,14 +72,10 @@ export const authOptions = {
       return token;
     },
     async session({ session, token }) {
-      if (token?.id) {
-        session.user.id = token.id as string;
-      }
-      if (token?.role) {
-        session.user.role = token.role as Role;
-      }
+      if (token?.id) session.user.id = token.id as string;
+      if (token?.role) session.user.role = token.role as Role;
       if (typeof token?.isVerifiedByAdmin === 'boolean') {
-        session.user.isVerifiedByAdmin = token.isVerifiedByAdmin as boolean;
+        session.user.isVerifiedByAdmin = token.isVerifiedByAdmin;
       }
       return session;
     },

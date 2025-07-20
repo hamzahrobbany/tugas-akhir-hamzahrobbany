@@ -25,6 +25,9 @@ export async function POST(req: Request) {
     if (existingUser) {
       return NextResponse.json({ message: 'Email sudah terdaftar.' }, { status: 409 });
     }
+    if (!email.includes('@')) {
+  return NextResponse.json({ message: 'Format email tidak valid.' }, { status: 400 });
+}
 
     // 3. Hash password
     const hashedPassword = await bcrypt.hash(password, 10); // Salt rounds 10

@@ -1,10 +1,9 @@
-// src/app/dashboard/admin/vehicles/page.tsx
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState, AppDispatch } from '@/store';
-import { fetchAdminVehicles, deleteVehicle, setOperationStatus } from '@/store/slices/vehicleSlice';
+import { fetchAdminVehicles, deleteVehicle } from '@/store/slices/vehicleSlice';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -22,31 +21,18 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { useSession } from 'next-auth/react';
-import { Role } from '@prisma/client';
 
 export default function AdminVehiclesPage() {
   const dispatch: AppDispatch = useDispatch();
-  const { data: session } = useSession();
-
-  const vehicles = useSelector((state: RootState) => state.vehicles.data);
-  const loading = useSelector((state: RootState) => state.vehicles.loading);
-  const error = useSelector((state: RootState) => state.vehicles.error);
-  const operationStatus = useSelector((state: RootState) => state.vehicles.operationStatus);
+  const { data: vehicles, loading, error } = useSelector((state: RootState) => state.vehicles);
 
   useEffect(() => {
-    // Logika ini sudah diperbaiki untuk mencegah loop
-    if (operationStatus === 'idle' || operationStatus === 'succeeded' || operationStatus === 'failed') {
-      dispatch(fetchAdminVehicles());
-      dispatch(setOperationStatus('idle'));
-    }
-  }, [dispatch, operationStatus]);
+    dispatch(fetchAdminVehicles());
+  }, [dispatch]);
 
   useEffect(() => {
     if (error) {
-      toast.error('Gagal Memuat Kendaraan', {
-        description: error,
-      });
+      toast.error('Gagal Memuat Kendaraan', { description: error });
     }
   }, [error]);
 
@@ -63,15 +49,16 @@ export default function AdminVehiclesPage() {
     }
   };
 
-  // ====================================================================
-  // Debugging: Tambahkan console.log untuk melihat state
-  // ====================================================================
-  console.log('AdminVehiclesPage State:');
-  console.log('  loading:', loading);
-  console.log('  error:', error);
-  console.log('  vehicles.length:', vehicles.length);
-  console.log('  operationStatus:', operationStatus);
-  console.log('  vehicles data:', vehicles); // Periksa data yang sebenarnya di konsol
+  const renderHeader = () => (
+    <div className="flex justify-between items-center mb-6">
+      <h1 className="text-3xl font-bold text-gray-900">Kelola Kendaraan</h1>
+      <Link href="/dashboard/admin/vehicles/create">
+        <Button className="bg-primary-500 hover:bg-primary-600 text-black rounded-lg shadow-md flex items-center gap-2">
+          <PlusCircle className="h-5 w-5" /> Tambah Kendaraan Baru
+        </Button>
+      </Link>
+    </div>
+  );
 
   if (loading && vehicles.length === 0) {
     return (
@@ -88,62 +75,40 @@ export default function AdminVehiclesPage() {
     );
   }
 
-  // Jika tidak loading DAN tidak ada kendaraan
-  if (!loading && vehicles.length === 0) { // <--- Pastikan kondisi ini
+  if (!loading && vehicles.length === 0) {
     return (
       <div className="max-w-7xl mx-auto px-6 py-8">
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-3xl font-bold text-gray-900">Kelola Kendaraan</h1>
-          <Link href="/dashboard/admin/vehicles/create">
-            <Button className="bg-primary-500 hover:bg-primary-600 text-white rounded-lg shadow-md flex items-center gap-2">
-              <PlusCircle className="h-5 w-5" /> Tambah Kendaraan Baru
-            </Button>
-          </Link>
-        </div>
+        {renderHeader()}
         <Card className="shadow-lg rounded-xl overflow-hidden">
           <CardContent className="p-6 text-center text-gray-600">
             <p>Belum ada kendaraan yang terdaftar.</p>
-            {error && <p className="text-red-500 mt-2">Error: {error}</p>} {/* Tampilkan error jika ada */}
+            {error && <p className="text-red-500 mt-2">Error: {error}</p>}
           </CardContent>
         </Card>
       </div>
     );
   }
 
-  // Jika ada error dan tidak loading, tampilkan pesan error
   if (error && !loading) {
     return (
       <div className="max-w-7xl mx-auto px-6 py-8">
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-3xl font-bold text-gray-900">Kelola Kendaraan</h1>
-          <Link href="/dashboard/admin/vehicles/create">
-            <Button className="bg-primary-500 hover:bg-primary-600 text-white rounded-lg shadow-md flex items-center gap-2">
-              <PlusCircle className="h-5 w-5" /> Tambah Kendaraan Baru
-            </Button>
-          </Link>
-        </div>
+        {renderHeader()}
         <Card className="shadow-lg rounded-xl overflow-hidden">
           <CardContent className="p-6 text-center text-red-500">
             <p>Terjadi kesalahan saat memuat kendaraan:</p>
             <p className="font-semibold">{error}</p>
-            <Button onClick={() => dispatch(fetchAdminVehicles())} className="mt-4">Coba Lagi</Button>
+            <Button onClick={() => dispatch(fetchAdminVehicles())} className="mt-4">
+              Coba Lagi
+            </Button>
           </CardContent>
         </Card>
       </div>
     );
   }
 
-  // Tampilkan tabel jika data sudah ada dan tidak ada error
   return (
     <div className="max-w-7xl mx-auto px-6 py-8">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold text-gray-900">Kelola Kendaraan</h1>
-        <Link href="/dashboard/admin/vehicles/create">
-          <Button className="bg-primary-500 hover:bg-primary-600 text-white rounded-lg shadow-md flex items-center gap-2">
-            <PlusCircle className="h-5 w-5" /> Tambah Kendaraan Baru
-          </Button>
-        </Link>
-      </div>
+      {renderHeader()}
 
       <Card className="shadow-lg rounded-xl overflow-hidden">
         <CardContent className="p-0">
@@ -169,13 +134,20 @@ export default function AdminVehiclesPage() {
                     <TableCell>{vehicle.licensePlate}</TableCell>
                     <TableCell>{vehicle.type.replace(/_/g, ' ')}</TableCell>
                     <TableCell>
-                      {new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(parseFloat(vehicle.dailyRate.toString()))}
+                      {new Intl.NumberFormat('id-ID', {
+                        style: 'currency',
+                        currency: 'IDR',
+                      }).format(parseFloat(vehicle.dailyRate.toString()))}
                     </TableCell>
                     <TableCell>{vehicle.owner?.name || 'N/A'}</TableCell>
                     <TableCell>
-                      <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                        vehicle.isAvailable ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                      }`}>
+                      <span
+                        className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                          vehicle.isAvailable
+                            ? 'bg-green-100 text-green-800'
+                            : 'bg-red-100 text-red-800'
+                        }`}
+                      >
                         {vehicle.isAvailable ? 'Ya' : 'Tidak'}
                       </span>
                     </TableCell>
@@ -193,7 +165,7 @@ export default function AdminVehiclesPage() {
                         </AlertDialogTrigger>
                         <AlertDialogContent className="rounded-xl">
                           <AlertDialogHeader>
-                            <AlertDialogTitle>Anda yakin ingin menghapus ini?</AlertDialogTitle>
+                            <AlertDialogTitle>Yakin ingin menghapus?</AlertDialogTitle>
                             <AlertDialogDescription>
                               Tindakan ini tidak dapat dibatalkan. Ini akan menghapus kendaraan "{vehicle.name}" secara permanen.
                             </AlertDialogDescription>

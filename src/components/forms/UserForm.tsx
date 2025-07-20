@@ -1,4 +1,3 @@
-// src/components/forms/UserForm.tsx
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -8,13 +7,14 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { User, Role } from '@prisma/client';
+import Link from 'next/link';
 
 // Perluas tipe User untuk form
 interface UserFormData {
-  id?: number; // Hanya ada saat edit
+  id?: number;
   name: string;
   email: string;
-  password?: string; // Opsional untuk edit, wajib untuk create
+  password?: string;
   role: Role | '';
   phoneNumber: string;
   address: string;
@@ -22,10 +22,11 @@ interface UserFormData {
 }
 
 interface UserFormProps {
-  initialData?: User; // Data awal saat mode edit
+  initialData?: User;
   onSubmit: (data: UserFormData) => void;
   loading: boolean;
   isEditMode?: boolean;
+  backUrl?: string;
 }
 
 export default function UserForm({
@@ -33,6 +34,7 @@ export default function UserForm({
   onSubmit,
   loading,
   isEditMode = false,
+  backUrl,
 }: UserFormProps) {
   const [formData, setFormData] = useState<UserFormData>({
     name: '',
@@ -50,7 +52,7 @@ export default function UserForm({
         id: initialData.id,
         name: initialData.name || '',
         email: initialData.email,
-        password: '', // Jangan isi password saat edit
+        password: '',
         role: initialData.role,
         phoneNumber: initialData.phoneNumber || '',
         address: initialData.address || '',
@@ -59,14 +61,19 @@ export default function UserForm({
     }
   }, [initialData]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { id, value, type, checked } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [id]: type === 'checkbox' ? checked : value,
-    }));
-  };
+const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const { id, value, type } = e.target;
+  let newValue: string | boolean = value;
 
+  if (type === 'checkbox' && e.target instanceof HTMLInputElement) {
+    newValue = e.target.checked;
+  }
+
+  setFormData((prev) => ({
+    ...prev,
+    [id]: newValue,
+  }));
+};
   const handleSelectChange = (id: keyof UserFormData, value: string) => {
     setFormData((prev) => ({
       ...prev,
@@ -93,7 +100,7 @@ export default function UserForm({
         <Input id="email" type="email" value={formData.email} onChange={handleChange} required className="mt-1 rounded-lg" />
       </div>
 
-      {/* Password (Wajib untuk create, opsional untuk edit) */}
+      {/* Password */}
       <div>
         <Label htmlFor="password">Password {isEditMode ? '(Kosongkan jika tidak ingin mengubah)' : ''}</Label>
         <Input
@@ -102,12 +109,12 @@ export default function UserForm({
           placeholder={isEditMode ? '********' : 'Minimal 6 karakter'}
           value={formData.password}
           onChange={handleChange}
-          required={!isEditMode} // Wajib jika bukan mode edit
+          required={!isEditMode}
           className="mt-1 rounded-lg"
         />
       </div>
 
-      {/* Peran (Role) */}
+      {/* Peran */}
       <div>
         <Label htmlFor="role">Peran (Role)</Label>
         <Select value={formData.role} onValueChange={(val: Role) => handleSelectChange('role', val)} required>
@@ -148,9 +155,18 @@ export default function UserForm({
         <Label htmlFor="isVerifiedByAdmin">Terverifikasi oleh Admin</Label>
       </div>
 
-      <Button type="submit" className="w-full bg-primary-500 hover:bg-primary-600 text-white rounded-lg shadow-md" disabled={loading}>
-        {loading ? (isEditMode ? 'Memperbarui...' : 'Menambah...') : (isEditMode ? 'Perbarui Pengguna' : 'Tambah Pengguna')}
-      </Button>
+      <div className="flex gap-4">
+        {backUrl && (
+          <Link href={backUrl} className="w-full">
+            <Button type="button" variant="outline" className="w-full rounded-lg">
+              Kembali
+            </Button>
+          </Link>
+        )}
+        <Button type="submit" className="w-full bg-primary-500 hover:bg-primary-600 text-black rounded-lg shadow-md" disabled={loading}>
+          {loading ? (isEditMode ? 'Memperbarui...' : 'Menambah...') : (isEditMode ? 'Perbarui Pengguna' : 'Tambah Pengguna')}
+        </Button>
+      </div>
     </form>
   );
 }

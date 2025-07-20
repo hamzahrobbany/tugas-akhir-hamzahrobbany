@@ -84,7 +84,7 @@ export default function DashboardPage() {
                   Selamat datang di SewaCepat! Jelajahi berbagai pilihan kendaraan kami.
                 </p>
                 <Link href="/browse-vehicles">
-                  <Button className="bg-primary-500 hover:bg-primary-600 text-white rounded-lg shadow-md">
+                  <Button className="bg-primary-500 hover:bg-primary-600 text-black rounded-lg shadow-md">
                     Jelajahi Kendaraan Sekarang
                   </Button>
                 </Link>

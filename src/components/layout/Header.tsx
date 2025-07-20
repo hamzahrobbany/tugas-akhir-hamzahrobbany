@@ -57,7 +57,7 @@ export default function Header() {
           ) : (
             // If user is not logged in
             <Link href="/auth/login">
-              <Button className="bg-primary-500 text-white px-4 py-2 rounded-lg shadow-md hover:bg-primary-600 transition-colors">
+              <Button className="bg-primary-500 text-black px-4 py-2 rounded-lg shadow-md hover:bg-primary-600 transition-colors">
                 Masuk
               </Button>
             </Link>

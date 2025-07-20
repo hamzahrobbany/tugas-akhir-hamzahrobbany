@@ -6,58 +6,27 @@ import prisma from '@/lib/db';
 import { Role, VehicleType, TransmissionType, FuelType } from '@prisma/client';
 
 // ===========================================
-// GET: Mengambil daftar semua kendaraan (Admin/Owner)
+// GET: Semua kendaraan (Admin/Owner)
 // ===========================================
-export async function GET(req: Request) {
+export async function GET() {
   const session = await getServerSession(authOptions);
 
-  // Pastikan pengguna sudah login dan memiliki peran ADMIN atau OWNER
   if (!session || !session.user || ![Role.ADMIN, Role.OWNER].includes(session.user.role)) {
     return NextResponse.json({ message: 'Unauthorized: Akses ditolak.' }, { status: 401 });
   }
 
   try {
-    let vehicles;
-    if (session.user.role === Role.ADMIN) {
-      // Admin bisa melihat semua kendaraan
-      vehicles = await prisma.vehicle.findMany({
-        include: {
-          owner: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-            },
-          },
-        },
-        orderBy: {
-          createdAt: 'desc',
-        },
-      });
-    } else { // OWNER
-      // Owner hanya bisa melihat kendaraan yang mereka miliki
-      vehicles = await prisma.vehicle.findMany({
-        where: {
-          ownerId: parseInt(session.user.id),
-        },
-        include: {
-          owner: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-            },
-          },
-        },
-        orderBy: {
-          createdAt: 'desc',
-        },
-      });
-    }
+    const vehicles = await prisma.vehicle.findMany({
+      where: session.user.role === Role.OWNER ? { ownerId: parseInt(session.user.id) } : undefined,
+      include: {
+        owner: { select: { id: true, name: true, email: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
 
     return NextResponse.json(vehicles, { status: 200 });
-  } catch (error: any) {
-    console.error('Error fetching admin vehicles:', error);
+  } catch (error) {
+    console.error('Error fetching vehicles:', error);
     return NextResponse.json({ message: 'Gagal memuat daftar kendaraan.' }, { status: 500 });
   }
 }
@@ -68,7 +37,6 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
 
-  // Pastikan pengguna sudah login dan memiliki peran ADMIN atau OWNER
   if (!session || !session.user || ![Role.ADMIN, Role.OWNER].includes(session.user.role)) {
     return NextResponse.json({ message: 'Unauthorized: Akses ditolak.' }, { status: 401 });
   }
@@ -88,18 +56,17 @@ export async function POST(req: Request) {
       licensePlate,
       city,
       address,
-      ownerId, // ownerId bisa disediakan oleh Admin, atau diambil dari sesi Owner
+      ownerId,
     } = body;
 
-    // Validasi input dasar
+    // Validasi wajib isi
     if (!name || !type || !capacity || !transmissionType || !fuelType || !dailyRate || !lateFeePerDay || !licensePlate || !city) {
       return NextResponse.json({ message: 'Data kendaraan tidak lengkap.' }, { status: 400 });
     }
 
-    // Pastikan ownerId valid
+    // Tentukan ownerId berdasarkan role
     let actualOwnerId: number;
     if (session.user.role === Role.ADMIN) {
-      // Admin harus menyediakan ownerId
       if (!ownerId) {
         return NextResponse.json({ message: 'Admin harus menyediakan Owner ID.' }, { status: 400 });
       }
@@ -107,45 +74,48 @@ export async function POST(req: Request) {
       if (isNaN(actualOwnerId)) {
         return NextResponse.json({ message: 'Owner ID tidak valid.' }, { status: 400 });
       }
-      // Opsional: verifikasi ownerId benar-benar OWNER di database
       const ownerExists = await prisma.user.findUnique({
         where: { id: actualOwnerId, role: Role.OWNER },
       });
       if (!ownerExists) {
-        return NextResponse.json({ message: 'Owner ID tidak ditemukan atau bukan peran OWNER.' }, { status: 400 });
+        return NextResponse.json({ message: 'Owner ID tidak ditemukan atau bukan OWNER.' }, { status: 400 });
       }
-    } else { // OWNER
-      // Owner otomatis menjadi owner dari kendaraan yang dibuat
+    } else {
       actualOwnerId = parseInt(session.user.id);
     }
 
-    // Konversi tipe data yang sesuai
+    // Parse angka
     const parsedDailyRate = parseFloat(dailyRate);
     const parsedLateFeePerDay = parseFloat(lateFeePerDay);
     const parsedCapacity = parseInt(capacity);
 
-    if (isNaN(parsedDailyRate) || isNaN(parsedLateFeePerDay) || isNaN(parsedCapacity)) {
+    if ([parsedDailyRate, parsedLateFeePerDay, parsedCapacity].some(isNaN)) {
       return NextResponse.json({ message: 'Format angka tidak valid untuk tarif atau kapasitas.' }, { status: 400 });
     }
 
+    const slug = name ? name.trim().toLowerCase().replace(/\s+/g, '-') : '';
     const newVehicle = await prisma.vehicle.create({
-      data: {
-        ownerId: actualOwnerId,
-        name,
-        description,
-        type: type as VehicleType,
-        capacity: parsedCapacity,
-        transmissionType: transmissionType as TransmissionType,
-        fuelType: fuelType as FuelType,
-        dailyRate: parsedDailyRate,
-        lateFeePerDay: parsedLateFeePerDay,
-        mainImageUrl,
-        licensePlate,
-        city,
-        address,
-        isAvailable: true, // Default saat dibuat
-      },
-    });
+  data: {
+    ownerId: actualOwnerId,
+    name: name.trim(),
+    description: description?.trim() || null,
+    type: type as VehicleType,
+    capacity: parsedCapacity,
+    transmissionType: transmissionType as TransmissionType,
+    fuelType: fuelType as FuelType,
+    dailyRate: parsedDailyRate,
+    lateFeePerDay: parsedLateFeePerDay,
+    mainImageUrl: mainImageUrl?.trim() || null,
+    licensePlate: licensePlate.trim(),
+    city: city.trim(),
+    address: address?.trim() || null,
+    isAvailable: true,
+    slug,
+  },
+});
+    if (!newVehicle) {
+      return NextResponse.json({ message: 'Gagal membuat kendaraan baru.' }, { status: 500 });
+    }
 
     return NextResponse.json(newVehicle, { status: 201 });
   } catch (error: any) {

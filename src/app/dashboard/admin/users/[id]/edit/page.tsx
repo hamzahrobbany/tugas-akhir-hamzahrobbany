@@ -1,71 +1,74 @@
-// src/app/dashboard/admin/users/[id]/edit/page.tsx
 'use client';
 
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { AppDispatch, RootState } from '@/store';
-import { fetchUserById, updateUser, setOperationStatus, clearCurrentUser } from '@/store/slices/userSlice';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import {
+  fetchUserById,
+  updateUser,
+  setOperationStatus,
+  clearCurrentUser,
+} from '@/store/slices/userSlice';
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from '@/components/ui/card';
 import { toast } from 'sonner';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import UserForm from '@/components/forms/UserForm';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 
-interface EditUserPageProps {
-  params: {
-    id: string; // ID pengguna dari URL
-  };
-}
-
-export default function EditUserPage({ params }: EditUserPageProps) {
+export default function EditUserPage() {
+  const params = useParams<{ id: string }>();
   const dispatch: AppDispatch = useDispatch();
   const router = useRouter();
 
   const userId = parseInt(params.id);
-  const currentUser = useSelector((state: RootState) => state.users.currentUser);
-  const loading = useSelector((state: RootState) => state.users.loading);
-  const error = useSelector((state: RootState) => state.users.error);
-  const operationStatus = useSelector((state: RootState) => state.users.operationStatus);
 
-  // Fetch detail pengguna saat komponen dimuat
+  const { currentUser, loading, error, operationStatus } = useSelector(
+    (state: RootState) => state.users
+  );
+
   useEffect(() => {
     if (userId) {
       dispatch(fetchUserById(userId));
     }
-    // Bersihkan currentUser saat komponen unmount
     return () => {
       dispatch(clearCurrentUser());
     };
   }, [dispatch, userId]);
 
-  // Tangani status operasi update
   useEffect(() => {
     if (operationStatus === 'succeeded') {
       toast.success('Pengguna Berhasil Diperbarui', {
         description: 'Detail pengguna telah berhasil diperbarui.',
       });
       dispatch(setOperationStatus('idle'));
-      router.push('/dashboard/admin/users'); // Redirect kembali ke daftar
-    } else if (operationStatus === 'failed' && error) {
+      router.push('/dashboard/admin/users');
+    }
+
+    if (operationStatus === 'failed' && error) {
       toast.error('Gagal Memperbarui Pengguna', {
         description: error,
       });
       dispatch(setOperationStatus('idle'));
     }
-  }, [operationStatus, error, router, dispatch]);
+  }, [operationStatus, error, dispatch, router]);
 
-  // Tampilkan toast error jika ada error saat fetch detail pengguna
   useEffect(() => {
     if (error && !loading && !currentUser) {
       toast.error('Gagal Memuat Detail Pengguna', {
         description: error,
       });
-      router.push('/dashboard/admin/users'); // Redirect jika pengguna tidak ditemukan/error
+      router.push('/dashboard/admin/users');
     }
   }, [error, loading, currentUser, router]);
 
-  const handleSubmit = async (formData: any) => {
+  const handleSubmit = (formData: any) => {
     dispatch(updateUser({ ...formData, id: userId }));
   };
 
@@ -74,7 +77,7 @@ export default function EditUserPage({ params }: EditUserPageProps) {
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <Card className="w-full max-w-lg rounded-xl shadow-lg">
           <CardHeader>
-            <CardTitle>Memuat Detail Pengguna...</CardTitle>
+            <CardTitle>Memuat Data Pengguna...</CardTitle>
           </CardHeader>
           <CardContent>
             <p>Mohon tunggu, sedang memuat data pengguna.</p>
@@ -94,7 +97,7 @@ export default function EditUserPage({ params }: EditUserPageProps) {
           <CardContent>
             <p>Pengguna dengan ID {params.id} tidak ditemukan.</p>
             <Link href="/dashboard/admin/users">
-              <Button className="mt-4 bg-primary-500 hover:bg-primary-600 text-white rounded-lg">
+              <Button className="mt-4 bg-primary-500 hover:bg-primary-600 text-black rounded-lg">
                 Kembali ke Daftar Pengguna
               </Button>
             </Link>
@@ -105,23 +108,30 @@ export default function EditUserPage({ params }: EditUserPageProps) {
   }
 
   return (
-    <div className="max-w-4xl mx-auto px-6 py-8">
-      <Card className="shadow-lg rounded-xl">
-        <CardHeader>
-          <CardTitle className="text-3xl font-bold mb-2">Edit Pengguna</CardTitle>
-          <CardDescription>Perbarui detail pengguna ini.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {currentUser && (
-            <UserForm
-              initialData={currentUser}
-              onSubmit={handleSubmit}
-              loading={loading}
-              isEditMode={true}
-            />
-          )}
-        </CardContent>
-      </Card>
+  <div className="max-w-4xl mx-auto px-6 py-8">
+    <div className="flex justify-between items-center mb-6">
+      <h1 className="text-3xl font-bold">Edit Pengguna</h1>
+      <Link href="/dashboard/admin/users">
+        <Button variant="outline" className="rounded-lg">
+          Kembali
+        </Button>
+      </Link>
     </div>
-  );
+
+    <Card className="shadow-lg rounded-xl">
+      <CardHeader>
+        <CardTitle className="text-2xl font-semibold">Form Edit Pengguna</CardTitle>
+        <CardDescription>Perbarui detail informasi akun pengguna di sini.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <UserForm
+          initialData={currentUser ?? undefined}
+          onSubmit={handleSubmit}
+          loading={loading}
+          isEditMode
+        />
+      </CardContent>
+    </Card>
+  </div>
+);
 }

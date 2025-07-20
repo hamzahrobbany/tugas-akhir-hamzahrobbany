@@ -82,13 +82,19 @@ export default function VehicleForm({
     }
   }, [initialData]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { id, value, type, checked } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [id]: type === 'checkbox' ? checked : value,
-    }));
-  };
+const handleChange = (
+  e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+) => {
+  const { id, value, type, checked } = e.target as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
+
+  setFormData((prev) => ({
+    ...prev,
+    [id]: type === 'checkbox'
+      ? checked
+      : value,
+  }));
+};
+
 
   const handleSelectChange = (id: keyof VehicleFormData, value: string) => {
     setFormData((prev) => ({
@@ -246,7 +252,7 @@ export default function VehicleForm({
         </div>
       )}
 
-      <Button type="submit" className="w-full bg-primary-500 hover:bg-primary-600 text-white rounded-lg shadow-md" disabled={loading}>
+      <Button type="submit" className="w-full bg-primary-500 hover:bg-primary-600 text-black rounded-lg shadow-md" disabled={loading}>
         {loading ? (isEditMode ? 'Memperbarui...' : 'Menambah...') : (isEditMode ? 'Perbarui Kendaraan' : 'Tambah Kendaraan')}
       </Button>
     </form>

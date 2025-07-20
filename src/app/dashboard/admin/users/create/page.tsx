@@ -1,7 +1,8 @@
-// src/app/dashboard/admin/users/create/page.tsx
+//s
+
 'use client';
 
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { AppDispatch, RootState } from '@/store';
 import { createUser, setOperationStatus } from '@/store/slices/userSlice';
@@ -14,26 +15,27 @@ export default function CreateUserPage() {
   const dispatch: AppDispatch = useDispatch();
   const router = useRouter();
 
-  const loading = useSelector((state: RootState) => state.users.operationStatus === 'pending');
-  const error = useSelector((state: RootState) => state.users.error);
-  const operationStatus = useSelector((state: RootState) => state.users.operationStatus);
+  const { operationStatus, error } = useSelector((state: RootState) => state.users);
+  const loading = operationStatus === 'pending';
 
   useEffect(() => {
     if (operationStatus === 'succeeded') {
       toast.success('Pengguna Berhasil Ditambahkan', {
         description: 'Pengguna baru telah berhasil ditambahkan.',
       });
-      dispatch(setOperationStatus('idle')); // Reset status
-      router.push('/dashboard/admin/users'); // Redirect kembali ke daftar
-    } else if (operationStatus === 'failed' && error) {
+      dispatch(setOperationStatus('idle'));
+      router.push('/dashboard/admin/users');
+    }
+
+    if (operationStatus === 'failed' && error) {
       toast.error('Gagal Menambahkan Pengguna', {
         description: error,
       });
-      dispatch(setOperationStatus('idle')); // Reset status
+      dispatch(setOperationStatus('idle'));
     }
-  }, [operationStatus, error, router, dispatch]);
+  }, [operationStatus, error, dispatch, router]);
 
-  const handleSubmit = async (formData: any) => {
+  const handleSubmit = (formData: any) => {
     dispatch(createUser(formData));
   };
 

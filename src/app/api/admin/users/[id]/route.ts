@@ -1,4 +1,3 @@
-// src/app/api/admin/users/[id]/route.ts
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
@@ -6,20 +5,31 @@ import prisma from '@/lib/db';
 import { Role } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 
+interface ParamsProps {
+  params: { id: string };
+}
+
 // ===========================================
-// GET: Mengambil detail pengguna tunggal (Admin)
+// GET: Ambil detail user by ID (Admin Only)
 // ===========================================
-export async function GET(req: Request, { params }: { params: { id: string } }) {
-  const { id } = params;
+export async function GET(req: Request, context: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
 
   if (!session || !session.user || session.user.role !== Role.ADMIN) {
-    return NextResponse.json({ message: 'Unauthorized: Akses ditolak.' }, { status: 401 });
+    return NextResponse.json(
+      { message: 'Unauthorized: Akses ditolak.' },
+      { status: 401 }
+    );
   }
 
-  const userId = parseInt(id);
+  const { id } = context.params;
+  const userId = parseInt(id, 10);
+
   if (isNaN(userId)) {
-    return NextResponse.json({ message: 'ID pengguna tidak valid.' }, { status: 400 });
+    return NextResponse.json(
+      { message: 'ID pengguna tidak valid.' },
+      { status: 400 }
+    );
   }
 
   try {
@@ -39,28 +49,34 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     });
 
     if (!user) {
-      return NextResponse.json({ message: 'Pengguna tidak ditemukan.' }, { status: 404 });
+      return NextResponse.json(
+        { message: 'Pengguna tidak ditemukan.' },
+        { status: 404 }
+      );
     }
 
     return NextResponse.json(user, { status: 200 });
-  } catch (error: any) {
-    console.error(`Error fetching user with ID ${id}:`, error);
-    return NextResponse.json({ message: 'Gagal memuat detail pengguna.' }, { status: 500 });
+  } catch (error) {
+    console.error(`GET user ID ${id} error:`, error);
+    return NextResponse.json(
+      { message: 'Gagal memuat detail pengguna.' },
+      { status: 500 }
+    );
   }
 }
 
 // ===========================================
-// PUT: Memperbarui detail pengguna (Admin)
+// PUT: Update User (Admin Only)
 // ===========================================
-export async function PUT(req: Request, { params }: { params: { id: string } }) {
-  const { id } = params;
+export async function PUT(req: Request, context: { params: { id: string } }) {
+  const { id } = context.params;
+  const userId = parseInt(id, 10);
   const session = await getServerSession(authOptions);
 
   if (!session || !session.user || session.user.role !== Role.ADMIN) {
     return NextResponse.json({ message: 'Unauthorized: Akses ditolak.' }, { status: 401 });
   }
 
-  const userId = parseInt(id);
   if (isNaN(userId)) {
     return NextResponse.json({ message: 'ID pengguna tidak valid.' }, { status: 400 });
   }
@@ -69,27 +85,29 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
     const body = await req.json();
     const { name, email, password, role, phoneNumber, address, isVerifiedByAdmin } = body;
 
-    const updateData: { [key: string]: any } = {};
+    const updateData: any = {};
+
     if (name !== undefined) updateData.name = name;
+
     if (email !== undefined) {
-      // Periksa apakah email sudah digunakan oleh user lain
-      const existingUserWithEmail = await prisma.user.findUnique({
-        where: { email: email },
-      });
-      if (existingUserWithEmail && existingUserWithEmail.id !== userId) {
-        return NextResponse.json({ message: 'Email sudah digunakan oleh pengguna lain.' }, { status: 409 });
+      const existingUser = await prisma.user.findUnique({ where: { email } });
+      if (existingUser && existingUser.id !== userId) {
+        return NextResponse.json(
+          { message: 'Email sudah digunakan oleh pengguna lain.' },
+          { status: 409 }
+        );
       }
       updateData.email = email;
     }
-    if (password !== undefined && password !== '') {
+
+    if (password && password !== '') {
       updateData.password = await bcrypt.hash(password, 10);
     }
-    if (role !== undefined) {
-      if (!Object.values(Role).includes(role as Role)) {
-        return NextResponse.json({ message: 'Peran tidak valid.' }, { status: 400 });
-      }
-      updateData.role = role as Role;
+
+    if (role && Object.values(Role).includes(role)) {
+      updateData.role = role;
     }
+
     if (phoneNumber !== undefined) updateData.phoneNumber = phoneNumber;
     if (address !== undefined) updateData.address = address;
     if (isVerifiedByAdmin !== undefined) updateData.isVerifiedByAdmin = isVerifiedByAdmin;
@@ -111,41 +129,60 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
     });
 
     return NextResponse.json(updatedUser, { status: 200 });
-  } catch (error: any) {
-    console.error(`Error updating user with ID ${id}:`, error);
-    return NextResponse.json({ message: 'Gagal memperbarui pengguna.' }, { status: 500 });
+  } catch (error) {
+    console.error(`PUT user ID ${id} error:`, error);
+    return NextResponse.json(
+      { message: 'Gagal memperbarui pengguna.' },
+      { status: 500 }
+    );
   }
 }
 
 // ===========================================
-// DELETE: Menghapus pengguna (Admin)
+// DELETE: Hapus User (Admin Only)
 // ===========================================
-export async function DELETE(req: Request, { params }: { params: { id: string } }) {
-  const { id } = params;
+export async function DELETE(req: Request, context: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
 
   if (!session || !session.user || session.user.role !== Role.ADMIN) {
-    return NextResponse.json({ message: 'Unauthorized: Akses ditolak.' }, { status: 401 });
+    return NextResponse.json(
+      { message: 'Unauthorized: Akses ditolak.' },
+      { status: 401 }
+    );
   }
 
-  const userId = parseInt(id);
+  const { id } = context.params;
+  const userId = parseInt(id, 10);
+
   if (isNaN(userId)) {
-    return NextResponse.json({ message: 'ID pengguna tidak valid.' }, { status: 400 });
+    return NextResponse.json(
+      { message: 'ID pengguna tidak valid.' },
+      { status: 400 }
+    );
+  }
+
+  // Tidak boleh hapus akun sendiri
+  if (Number(session.user.id) === userId) {
+    return NextResponse.json(
+      { message: 'Forbidden: Anda tidak dapat menghapus akun Anda sendiri.' },
+      { status: 403 }
+    );
   }
 
   try {
-    // Pastikan admin tidak menghapus dirinya sendiri
-    if (session.user.id === id) {
-      return NextResponse.json({ message: 'Forbidden: Anda tidak dapat menghapus akun Anda sendiri.' }, { status: 403 });
-    }
-
     await prisma.user.delete({
       where: { id: userId },
     });
 
-    return NextResponse.json({ message: 'Pengguna berhasil dihapus.' }, { status: 200 });
-  } catch (error: any) {
-    console.error(`Error deleting user with ID ${id}:`, error);
-    return NextResponse.json({ message: 'Gagal menghapus pengguna.' }, { status: 500 });
+    return NextResponse.json(
+      { message: 'Pengguna berhasil dihapus.' },
+      { status: 200 }
+    );
+  } catch (error) {
+    console.error(`DELETE user ID ${id} error:`, error);
+    return NextResponse.json(
+      { message: 'Gagal menghapus pengguna.' },
+      { status: 500 }
+    );
   }
 }
